@@ -1,0 +1,17 @@
+{% include "header.jinja2" %}
+{% if enum.description %}
+{{ enum.description | xml_doc }}
+{% endif %}
+public enum {{ enum.name }}
+{
+{% for value in enum.values %}
+{% if not loop.first %}
+
+{% endif %}
+{% if value.description %}
+{{ value.description | xml_doc("    ") }}
+{% endif %}
+    [global::System.Runtime.Serialization.EnumMember(Value = {{ value.text | cs_string }})]
+    {{ value.label }},
+{% endfor %}
+}

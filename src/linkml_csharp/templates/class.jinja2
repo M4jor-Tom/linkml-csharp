@@ -1,0 +1,17 @@
+{% include "header.jinja2" %}
+{% if cls.description %}
+{{ cls.description | xml_doc }}
+{% endif %}
+public {% if cls.abstract %}abstract {% endif %}partial class {{ cls.name }}{% if cls.is_a %} : {{ cls.is_a }}{% endif %}
+
+{
+{% for f in cls.fields %}
+{% if not loop.first %}
+
+{% endif %}
+{% if f.source_slot.description %}
+{{ f.source_slot.description | xml_doc("    ") }}
+{% endif %}
+    public {{ "required " if f.source_slot.required }}{{ f.range }}{{ "" if f.source_slot.required else "?" }} {{ f.name }} { get; set; }
+{% endfor %}
+}
