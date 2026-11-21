@@ -47,7 +47,7 @@ and its `AGENTS.md`, so the generator can be proposed upstream without rework:
 ## Git conventions
 
 - [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/): `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`, `ci:` ...
-- Gitflow: branch `feat/*` and `fix/*` from `develop`; merge `develop` into `main` at release, with `--ff-only`.
+- Branching: create `feat/*` and `fix/*` branches from `master` and merge them back into `master` with `--ff-only`.
 
 ## Proposing upstream
 
