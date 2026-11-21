@@ -1,0 +1,23 @@
+id: https://example.org/shared
+name: shared-model
+imports: [linkml:types]
+prefixes: {linkml: https://w3id.org/linkml/, shared: https://example.org/shared/}
+default_prefix: shared
+default_range: string
+types:
+  Distance: {typeof: double, description: A length in metres.}
+classes:
+  Vector:
+    attributes:
+      x: {range: Distance, required: true}
+  Entity:
+    abstract: true
+    attributes:
+      id: {identifier: true, range: uriorcurie}
+  Tagged:
+    mixin: true
+    attributes:
+      tags: {multivalued: true}
+enums:
+  Unit:
+    permissible_values: {metre: {}, second: {}}

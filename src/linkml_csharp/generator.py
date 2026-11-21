@@ -6,7 +6,7 @@ See ``docs/MAPPING.md`` for the mapping contract.
 import json
 from collections import Counter
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -16,7 +16,13 @@ import click
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from linkml.generators.oocodegen import OOCodeGenerator, OODocument, OOEnum
 from linkml.utils.generator import shared_arguments
-from linkml_runtime.linkml_model.meta import ClassDefinition, EnumDefinition, EnumDefinitionName, TypeDefinition
+from linkml_runtime.linkml_model.meta import (
+    ClassDefinition,
+    EnumDefinition,
+    EnumDefinitionName,
+    SlotDefinition,
+    TypeDefinition,
+)
 from linkml_runtime.utils.formatutils import camelcase
 
 ENV = Environment(
@@ -105,11 +111,31 @@ class CSharpGenerator(OOCodeGenerator):
     true_enums: bool = True
     package: str = "Example"
 
+    import_namespaces: dict[str, str] = field(default_factory=dict)
+    """Namespace of the already generated types of an imported schema, by schema name.
+
+    Classes and enums of these schemas are not generated; references to them are
+    written ``global::<namespace>.<Name>``.
+    """
+
     def __post_init__(self) -> None:
-        """Validate the namespace, which is stored in ``package`` like gen-java's package."""
+        """Validate the namespaces; the main one is stored in ``package`` like gen-java's package.
+
+        ``import_namespaces`` can only be checked against the loaded schema, so
+        its errors are usage errors raised here, for the CLI and callers alike.
+        """
         super().__post_init__()
         if not is_valid_namespace(self.package):
             raise ValueError(f"{self.package!r} is not a valid C# namespace")
+        imported = {s.name: s.id for s in self.schemaview.all_schema() if s.name != self.schemaview.schema.name}
+        for name, namespace in self.import_namespaces.items():
+            if not is_valid_namespace(namespace):
+                raise click.UsageError(f"{namespace!r} is not a valid C# namespace")
+            if name not in imported:
+                raise click.UsageError(
+                    f"{name!r} is not an imported schema; choose from: {', '.join(sorted(imported))}"
+                )
+        self._namespace_by_schema_id = {imported[name]: ns for name, ns in self.import_namespaces.items()}
 
     @classmethod
     def validate_generator_args(cls, args: Mapping[str, Any]) -> None:
@@ -125,9 +151,26 @@ class CSharpGenerator(OOCodeGenerator):
         """Properties are PascalCase."""
         return camelcase(sn)
 
+    def external_name(self, element: ClassDefinition | EnumDefinition) -> str | None:
+        """Return the qualified name of a type generated elsewhere (``import_namespaces``), else None."""
+        namespace = self._namespace_by_schema_id.get(element.from_schema)
+        return f"global::{namespace}.{camelcase(element.name)}" if namespace else None
+
+    def get_class_name(self, cn: str) -> str:
+        """Name a class, qualified when it is generated elsewhere; this is how ``is_a`` parents are written."""
+        return self.external_name(self.schemaview.get_class(cn)) or camelcase(cn)
+
     def map_class(self, c: ClassDefinition) -> str | None:
-        """Represent ``linkml:Any`` as ``object``, as gen-java uses ``Object``."""
-        return "object" if c.class_uri == "linkml:Any" else None
+        """Represent ``linkml:Any`` as ``object``, as gen-java uses ``Object``; skip classes generated elsewhere."""
+        return "object" if c.class_uri == "linkml:Any" else self.external_name(c)
+
+    def _get_range(self, slot: SlotDefinition) -> str:
+        """Qualify the range of an enum generated elsewhere; classes go through :meth:`map_class`."""
+        enum = self.schemaview.get_enum(slot.range)
+        external = self.external_name(enum) if enum else None
+        if external:
+            return self.make_multivalued(external) if slot.multivalued else external
+        return super()._get_range(slot)
 
     def map_type(self, t: TypeDefinition, required: bool = False) -> str:
         """Map a type by its XSD URI, else by its base type; nullability is added by the template."""
@@ -147,7 +190,13 @@ class CSharpGenerator(OOCodeGenerator):
         return camelcase(super().generate_enum_label(value))
 
     def generate_enum_objects(self, all_enums: dict[EnumDefinitionName, EnumDefinition]) -> dict[str, OOEnum]:
-        """Keep the raw permissible value text; templates escape it with :func:`cs_string`."""
+        """Keep the raw permissible value text; templates escape it with :func:`cs_string`.
+
+        Like classes, enums are left out when ``--no-mergeimports`` excludes
+        imports or when they are generated elsewhere.
+        """
+        merged = self.schemaview.all_enums(imports=self.mergeimports)
+        all_enums = {n: e for n, e in all_enums.items() if n in merged and not self.external_name(e)}
         enums = super().generate_enum_objects(all_enums)
         for name, enum in enums.items():
             for value, pv in zip(enum.values, all_enums[name].permissible_values.values()):
@@ -207,9 +256,26 @@ def validate_names(docs: list[OODocument]) -> None:
                 raise ValueError(f"{name!r} in {doc.name!r} is not a valid C# identifier")
 
 
+def parse_import_namespaces(ctx: click.Context, param: click.Parameter, values: tuple[str, ...]) -> dict[str, str]:
+    """Parse repeated ``SCHEMA_NAME=NAMESPACE`` option values into a dict."""
+    pairs = [value.partition("=") for value in values]
+    for value, (name, _, namespace) in zip(values, pairs):
+        if not name or not namespace:
+            raise click.BadParameter(f"{value!r} is not SCHEMA_NAME=NAMESPACE")
+    return {name: namespace for name, _, namespace in pairs}
+
+
 @shared_arguments(CSharpGenerator)
 @click.option("--output-directory", "-d", default="output", show_default=True, help="Directory for the .cs files")
 @click.option("--namespace", default="Example", show_default=True, help="Namespace of the generated types")
+@click.option(
+    "--import-namespace",
+    "import_namespaces",
+    multiple=True,
+    metavar="SCHEMA_NAME=NAMESPACE",
+    callback=parse_import_namespaces,
+    help="Do not generate the types of this imported schema; reference them in this namespace. Repeatable.",
+)
 @click.option("--use-aliases/--no-use-aliases", default=False, help="Use aliases when available to name properties")
 @click.version_option(version("linkml-csharp"), "-V", "--version")
 @click.command(name="csharp")

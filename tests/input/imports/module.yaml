@@ -1,0 +1,22 @@
+id: https://example.org/app/module
+name: app-module
+imports: [linkml:types, shared]
+prefixes: {linkml: https://w3id.org/linkml/, app: https://example.org/app/}
+default_prefix: app
+default_range: string
+classes:
+  Probe:
+    is_a: Entity
+    mixins: [Tagged]
+    description: A local class using every kind of reference to the shared schema.
+    attributes:
+      position: {range: Vector, required: true}
+      waypoints: {range: Vector, multivalued: true}
+      unit: {range: Unit}
+      units: {range: Unit, multivalued: true}
+      reach: {range: Distance}
+      mode: {range: Mode}
+      next: {range: Probe}
+enums:
+  Mode:
+    permissible_values: {idle: {}, active: {}}

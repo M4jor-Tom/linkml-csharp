@@ -7,7 +7,8 @@ follows upstream [`gen-java`](https://linkml.io/linkml/generators/java.html)
 (`JavaGenerator`, built on `OOCodeGenerator`) wherever C# allows, so the
 generator can later be proposed upstream as `gen-csharp`.
 
-One `.cs` file is written per class and enum, all in one namespace. Generated
+One `.cs` file is written per class and enum, all in one namespace (see
+[Imports](#imports) for types generated elsewhere). Generated
 code has no runtime dependencies beyond the .NET base class library and needs
 C# 11 (`required` members). It is tested with the .NET 10 SDK.
 
@@ -97,6 +98,26 @@ does not compile:
 - two properties of a class (including inherited ones) or two enum members with
   the same name after PascalCase (`foo_bar` and `fooBar`);
 - a property named like its class (C# error CS0542).
+
+## Imports
+
+Imported schemas are merged: their classes and enums are generated in the same
+namespace. As for every LinkML generator, `--no-mergeimports` generates only the
+classes and enums the given schema file defines itself.
+
+`--import-namespace SCHEMA_NAME=NAMESPACE` (repeatable; `import_namespaces` in
+Python) declares that the types of the imported schema named `SCHEMA_NAME` are
+already generated in `NAMESPACE`, in the spirit of `gen-pydantic`'s split mode:
+
+- classes and enums defined by that schema are not generated;
+- references to them (property types, list elements, base classes) are written
+  `global::NAMESPACE.Name`, so a type of the same name in the generated
+  namespace cannot shadow them;
+- its types still map to their C# primitive, and slots of its mixins are still
+  flattened into the classes that use them.
+
+A malformed value, an invalid namespace, or a name that is not a schema of the
+imports closure is a usage error.
 
 ## Not supported
 

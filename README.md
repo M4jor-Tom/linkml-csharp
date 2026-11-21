@@ -28,6 +28,20 @@ Classes are `partial`, so handwritten members can live in a separate file.
 Inheritance, flattened mixins, abstract classes, aliases (`--use-aliases`) and
 custom types are supported; names that would not compile fail generation.
 
+### Imported schemas generated elsewhere
+
+When the schema imports another schema whose types already exist in another
+namespace, map that schema's `name` to the namespace (the option is repeatable):
+
+```shell
+gen-csharp design.yaml -d src/Design/ --namespace MyApp.Design --import-namespace my-ontology=MyApp.Domain
+```
+
+The classes and enums of `my-ontology` are then not generated, and references to
+them are written `global::MyApp.Domain.Planet`. The standard LinkML option
+`--no-mergeimports` instead generates only what the given file itself defines,
+leaving references to imported types unqualified.
+
 This is **not a LinkML runtime**: validation, reference resolution and JSON/YAML
 loading and saving remain the caller's responsibility. Keep the source schema
 for validation. See [the mapping contract](docs/MAPPING.md) for every

@@ -1,0 +1,7 @@
+id: https://example.org/app
+name: app
+description: Defines nothing itself, like a root schema that only assembles modules.
+imports: [linkml:types, module]
+prefixes: {linkml: https://w3id.org/linkml/, app: https://example.org/app/}
+default_prefix: app
+default_range: string
