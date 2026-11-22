@@ -23,6 +23,12 @@ dev = [
     "ruff>=0.17.4",
 ]
 
+# These legacy source distributions do not declare their build backend.
+[tool.uv.extra-build-dependencies]
+antlr4-python3-runtime = ["setuptools"]
+cfgraph = ["setuptools"]
+pytest-logging = ["setuptools"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests", "src"]
 addopts = "--doctest-modules"
